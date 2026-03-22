@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"runtime"
 	"strings"
 	"time"
 
@@ -62,7 +63,12 @@ func showCursor() {
 }
 
 func getClipboard() string {
-	cmd := exec.Command("pbpaste")
+	var cmd *exec.Cmd
+	if runtime.GOOS == "windows" {
+		cmd = exec.Command("powershell", "-command", "Get-Clipboard")
+	} else {
+		cmd = exec.Command("pbpaste")
+	}
 	out, err := cmd.Output()
 	if err != nil {
 		return ""
@@ -71,8 +77,10 @@ func getClipboard() string {
 }
 
 const keyPaste byte = 0xFF
+const keyCopy byte = 0xFE
 
 var pastedContent string
+var ctrlCAborts = true // When false, Ctrl+C returns keyCopy instead of aborting
 
 func readKey() ([]byte, error) {
 	oldState, err := term.MakeRaw(int(os.Stdin.Fd()))
@@ -89,16 +97,20 @@ func readKey() ([]byte, error) {
 		return nil, err
 	}
 
-	// Ctrl+C detection - exit cleanly
+	// Ctrl+C detection
 	if b == 3 {
-		term.Restore(int(os.Stdin.Fd()), oldState)
-		showCursor()
-		exitAltScreen()
-		if currentDownloadPath != "" {
-			os.Remove(currentDownloadPath)
+		if ctrlCAborts {
+			term.Restore(int(os.Stdin.Fd()), oldState)
+			showCursor()
+			exitAltScreen()
+			if currentDownloadPath != "" {
+				os.Remove(currentDownloadPath)
+			}
+			fmt.Print("Download aborted.\r\n")
+			os.Exit(0)
 		}
-		fmt.Print("Download aborted.\r\n")
-		os.Exit(0)
+		// In input mode, Ctrl+C means copy
+		return []byte{keyCopy}, nil
 	}
 
 	// Ctrl+V (22) or Ctrl+Y (25) detection - paste from clipboard
@@ -168,6 +180,44 @@ func getPastedContent() string {
 	return pastedContent
 }
 
+func printEmptyLine() {
+	fmt.Println("                                                                    ")
+}
+
+func printHeader() {
+	printEmptyLine()
+	fmt.Printf("  %s╔══════════════════════════════════════════════════════════════╗%s\n", colorCyan, colorReset)
+	fmt.Printf("  %s║%s%s                         TRANSFER.IT                          %s%s║%s\n", colorCyan, colorReset, colorBold, colorReset, colorCyan, colorReset)
+	fmt.Printf("  %s╚══════════════════════════════════════════════════════════════╝%s\n", colorCyan, colorReset)
+	printEmptyLine()
+}
+
+func printTitle(title string) {
+	fmt.Printf("  %s%s%s%s                                                    \n", colorBold, colorBlue, title, colorReset)
+	printEmptyLine()
+}
+
+func printMenuOption(text string, selected bool) {
+	if selected {
+		fmt.Printf("  %s%s› %-60s%s\n", colorBold, colorGreen, text, colorReset)
+	} else {
+		fmt.Printf("  %s  %-60s%s\n", colorDim, text, colorReset)
+	}
+}
+
+func printMenuHint() {
+	printEmptyLine()
+	fmt.Printf("  %sUse ↑/↓ arrows to select, Enter to confirm%s                       \n", colorDim, colorReset)
+}
+
+func printInputField(prefix, value string, maxLen int) {
+	display := value
+	if len(display) > maxLen {
+		display = display[:maxLen]
+	}
+	fmt.Printf("  %s>%s %s%-60s%s\n", colorGreen, colorReset, colorBold, display, colorReset)
+}
+
 func (d *Downloader) showRenameSubmenu() int {
 	options := []string{
 		"Auto-rename (add number suffix)",
@@ -183,23 +233,13 @@ func (d *Downloader) showRenameSubmenu() int {
 			firstRender = false
 		}
 		moveCursor(1, 1)
-		fmt.Println("                                                                    ")
-		fmt.Printf("  %s╔══════════════════════════════════════════════════════════════╗%s\n", colorCyan, colorReset)
-		fmt.Printf("  %s║%s%s              TRANSFER.IT DOWNLOADER                          %s%s║%s\n", colorCyan, colorReset, colorBold, colorReset, colorCyan, colorReset)
-		fmt.Printf("  %s╚══════════════════════════════════════════════════════════════╝%s\n", colorCyan, colorReset)
-		fmt.Println("                                                                    ")
-		fmt.Printf("  %s%sRENAME OPTIONS%s                                                    \n", colorBold, colorBlue, colorReset)
-		fmt.Println("                                                                    ")
+		printHeader()
+		printTitle("RENAME OPTIONS")
 
 		for i, opt := range options {
-			if i == selected {
-				fmt.Printf("  %s%s› %-60s%s\n", colorBold, colorGreen, opt, colorReset)
-			} else {
-				fmt.Printf("  %s  %-60s%s\n", colorDim, opt, colorReset)
-			}
+			printMenuOption(opt, i == selected)
 		}
-		fmt.Println("                                                                    ")
-		fmt.Printf("  %sUse ↑/↓ arrows to select, Enter to confirm%s                       \n", colorDim, colorReset)
+		printMenuHint()
 
 		key, err := readKey()
 		if err != nil {
@@ -228,32 +268,31 @@ func (d *Downloader) showPasswordInput() string {
 	cursor := 0
 	firstRender := true
 
+	// Disable Ctrl+C abort during input
+	ctrlCAborts = false
+	defer func() { ctrlCAborts = true }()
+
+	pasteHint := "Ctrl+V"
+	if runtime.GOOS == "darwin" {
+		pasteHint = "Cmd+V"
+	}
+
 	for {
 		if firstRender {
 			clearScreen()
 			firstRender = false
 		}
 		moveCursor(1, 1)
-		fmt.Println("                                                                    ")
-		fmt.Printf("  %s╔══════════════════════════════════════════════════════════════╗%s\n", colorCyan, colorReset)
-		fmt.Printf("  %s║%s%s              TRANSFER.IT DOWNLOADER                          %s%s║%s\n", colorCyan, colorReset, colorBold, colorReset, colorCyan, colorReset)
-		fmt.Printf("  %s╚══════════════════════════════════════════════════════════════╝%s\n", colorCyan, colorReset)
-		fmt.Println("                                                                    ")
+		printHeader()
 		fmt.Printf("  %s%s🔒 PASSWORD PROTECTED%s                                             \n", colorBold, colorYellow, colorReset)
-		fmt.Println("                                                                    ")
+		printEmptyLine()
 		fmt.Printf("  %sThis transfer requires a password to access.%s                      \n", colorWhite, colorReset)
-		fmt.Println("                                                                    ")
+		printEmptyLine()
 		fmt.Printf("  %sEnter password:%s                                                   \n", colorWhite, colorReset)
-		fmt.Println("                                                                    ")
-
-		// Show password
-		displayPwd := string(password)
-		if len(displayPwd) > 55 {
-			displayPwd = displayPwd[:55]
-		}
-		fmt.Printf("  %s>%s %s%-60s%s\n", colorGreen, colorReset, colorBold, displayPwd, colorReset)
-		fmt.Println("                                                                    ")
-		fmt.Printf("  %sEnter to confirm, Esc to cancel, Cmd+V to paste%s                   \n", colorDim, colorReset)
+		printEmptyLine()
+		printInputField(">", string(password), 55)
+		printEmptyLine()
+		fmt.Printf("  %sEnter to confirm, Esc to cancel, %s to paste%s                   \n", colorDim, pasteHint, colorReset)
 
 		// Position cursor visually
 		moveCursor(12, 5+cursor)
@@ -307,28 +346,22 @@ func (d *Downloader) showManualRenameInput(originalName string) string {
 	cursor := len(name)
 	firstRender := true
 
+	// Disable Ctrl+C abort during input
+	ctrlCAborts = false
+	defer func() { ctrlCAborts = true }()
+
 	for {
 		if firstRender {
 			clearScreen()
 			firstRender = false
 		}
 		moveCursor(1, 1)
-		fmt.Println("                                                                    ")
-		fmt.Printf("  %s╔══════════════════════════════════════════════════════════════╗%s\n", colorCyan, colorReset)
-		fmt.Printf("  %s║%s%s              TRANSFER.IT DOWNLOADER                          %s%s║%s\n", colorCyan, colorReset, colorBold, colorReset, colorCyan, colorReset)
-		fmt.Printf("  %s╚══════════════════════════════════════════════════════════════╝%s\n", colorCyan, colorReset)
-		fmt.Println("                                                                    ")
-		fmt.Printf("  %s%sMANUAL RENAME%s                                                     \n", colorBold, colorBlue, colorReset)
-		fmt.Println("                                                                    ")
+		printHeader()
+		printTitle("MANUAL RENAME")
 		fmt.Printf("  %sEnter new filename:%s                                               \n", colorWhite, colorReset)
-		fmt.Println("                                                                    ")
-
-		displayName := string(name)
-		if len(displayName) > 55 {
-			displayName = displayName[:55]
-		}
-		fmt.Printf("  %s>%s %s%-60s%s\n", colorGreen, colorReset, colorBold, displayName, colorReset)
-		fmt.Println("                                                                    ")
+		printEmptyLine()
+		printInputField(">", string(name), 55)
+		printEmptyLine()
 		fmt.Printf("  %sType to edit, Enter to confirm, Esc to cancel%s                    \n", colorDim, colorReset)
 
 		// Position cursor visually
@@ -398,29 +431,20 @@ func (d *Downloader) showFileConflictMenu(existingPath string, fileInfo os.FileI
 			firstRender = false
 		}
 		moveCursor(1, 1)
-		fmt.Println("                                                                    ")
-		fmt.Printf("  %s╔══════════════════════════════════════════════════════════════╗%s\n", colorCyan, colorReset)
-		fmt.Printf("  %s║%s%s              TRANSFER.IT DOWNLOADER                          %s%s║%s\n", colorCyan, colorReset, colorBold, colorReset, colorCyan, colorReset)
-		fmt.Printf("  %s╚══════════════════════════════════════════════════════════════╝%s\n", colorCyan, colorReset)
-		fmt.Println("                                                                    ")
+		printHeader()
 		fmt.Printf("  %s%s⚠  FILE ALREADY EXISTS%s                                           \n", colorBold, colorYellow, colorReset)
-		fmt.Println("                                                                    ")
+		printEmptyLine()
 		fmt.Printf("  %sPath:%s     %s%-52s%s\n", colorDim, colorReset, colorWhite, existingPath, colorReset)
 		fmt.Printf("  %sSize:%s     %s%-52s%s\n", colorDim, colorReset, colorWhite, formatSize(size), colorReset)
 		fmt.Printf("  %sModified:%s %s%-52s%s\n", colorDim, colorReset, colorWhite, modTime.Format("2006/01/02 15:04"), colorReset)
-		fmt.Println("                                                                    ")
+		printEmptyLine()
 		fmt.Printf("  %sChoose an action:%s                                                 \n", colorWhite, colorReset)
-		fmt.Println("                                                                    ")
+		printEmptyLine()
 
 		for i, opt := range options {
-			if i == selected {
-				fmt.Printf("  %s%s› %-60s%s\n", colorBold, colorGreen, opt, colorReset)
-			} else {
-				fmt.Printf("  %s  %-60s%s\n", colorDim, opt, colorReset)
-			}
+			printMenuOption(opt, i == selected)
 		}
-		fmt.Println("                                                                    ")
-		fmt.Printf("  %sUse ↑/↓ arrows to select, Enter to confirm%s                       \n", colorDim, colorReset)
+		printMenuHint()
 
 		key, err := readKey()
 		if err != nil {
@@ -481,29 +505,22 @@ func (d *Downloader) renderTUI(filename string, downloaded, total int64, startTi
 	barEmpty := strings.Repeat("░", barLen-filled)
 
 	moveCursor(1, 1)
-	fmt.Println("                                                                    ")
-	fmt.Printf("  %s╔══════════════════════════════════════════════════════════════╗%s\n", colorCyan, colorReset)
-	fmt.Printf("  %s║%s%s              TRANSFER.IT DOWNLOADER                          %s%s║%s\n", colorCyan, colorReset, colorBold, colorReset, colorCyan, colorReset)
-	fmt.Printf("  %s╚══════════════════════════════════════════════════════════════╝%s\n", colorCyan, colorReset)
-	fmt.Println("                                                                    ")
-	fmt.Println("                                                                    ")
+	printHeader()
+	printEmptyLine()
 	fmt.Printf("  %sFile:%s       %s%-58s%s\n", colorDim, colorReset, colorBold, filename, colorReset)
 	fmt.Printf("  %sElapsed:%s    %s%-50s%s\n", colorDim, colorReset, colorBold, formatDuration(time.Since(startTime)), colorReset)
 	fmt.Printf("  %sDownloaded:%s %s%-50s%s\n", colorDim, colorReset, colorBold, fmt.Sprintf("%s / %s", formatSize(downloaded), formatSize(total)), colorReset)
-	fmt.Println("                                                                    ")
+	printEmptyLine()
 	fmt.Printf("  [%s%s%s%s%s] %s%5.1f%%%s\n", colorGreen, barFilled, colorReset, colorDim, barEmpty+colorReset, colorBold, pct, colorReset)
-	fmt.Println("                                                                    ")
+	printEmptyLine()
 	fmt.Printf("  %sETA:%s        %s%-50s%s\n", colorDim, colorReset, colorBold, eta, colorReset)
 	fmt.Printf("  %sSpeed:%s      %s%-50s%s\n", colorDim, colorReset, colorBold, formatSpeed(speed), colorReset)
 }
 
 func (d *Downloader) renderStep(step int, msg string, info *TransferInfo, title string, files []FileNode) {
 	clearScreen()
-	moveCursor(2, 1)
-	fmt.Printf("  %s╔══════════════════════════════════════════════════════════════╗%s\n", colorCyan, colorReset)
-	fmt.Printf("  %s║%s%s              TRANSFER.IT DOWNLOADER                          %s%s║%s\n", colorCyan, colorReset, colorBold, colorReset, colorCyan, colorReset)
-	fmt.Printf("  %s╚══════════════════════════════════════════════════════════════╝%s\n", colorCyan, colorReset)
-	fmt.Println()
+	moveCursor(1, 1)
+	printHeader()
 
 	steps := []string{
 		"Fetching transfer info",

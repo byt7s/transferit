@@ -25,6 +25,7 @@ func NewDownloader(verbose, silent bool) *Downloader {
 		seqID:   rand.Intn(0xFFFFFFFF),
 		verbose: verbose && !silent,
 		silent:  silent,
+		pw:      "",
 	}
 }
 
@@ -54,6 +55,9 @@ func (d *Downloader) apiRequestBT7(payload interface{}, xh string) (json.RawMess
 	q.Set("bc", "1")
 	if xh != "" {
 		q.Set("x", xh)
+	}
+	if d.pw != "" {
+		q.Set("pw", d.pw)
 	}
 	reqURL.RawQuery = q.Encode()
 
@@ -128,14 +132,13 @@ var errPasswordRequired = fmt.Errorf("password required")
 func (d *Downloader) fetchFileList(xh string, password string) ([]FileNode, error) {
 	d.log("Fetching file list for xh=%s", xh)
 
-	payload := map[string]interface{}{"a": "f", "c": 1, "r": 1, "xnc": 1}
+	payload := map[string]interface{}{"a": "f", "c": 1, "r": 1}
 	if password != "" {
 		d.pw = derivePassword(xh, password)
-		// d.log("Derived password: %s", d.pw)
+		d.log("Derived password: %s", d.pw)
 	}
-	if d.pw != "" {
-		payload["pw"] = d.pw
-		// d.log("Using pw in payload")
+	if d.pw == "" {
+		payload["xnc"] = 1
 	}
 	raw, err := d.apiRequestBT7([]map[string]interface{}{payload}, xh)
 	if err != nil {

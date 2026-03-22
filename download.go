@@ -10,7 +10,6 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
-	"syscall"
 	"time"
 )
 
@@ -180,7 +179,7 @@ func (d *Downloader) downloadFile(dlURL, filename, outputDir string) (*downloadR
 	}, nil
 }
 
-func (d *Downloader) Run(input, outputDir string, listOnly bool) error {
+func (d *Downloader) Run(input, outputDir, password string, listOnly bool) error {
 	xh, err := d.extractHandle(input)
 	if err != nil {
 		return err
@@ -193,7 +192,7 @@ func (d *Downloader) Run(input, outputDir string, listOnly bool) error {
 		hideCursor()
 
 		sigChan := make(chan os.Signal, 1)
-		signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+		signal.Notify(sigChan, os.Interrupt)
 		go func() {
 			<-sigChan
 			showCursor()
@@ -242,20 +241,22 @@ func (d *Downloader) Run(input, outputDir string, listOnly bool) error {
 		d.renderStep(2, "Loading file list...", info, title, nil)
 	}
 
-	var password string
-	rawNodes, err := d.fetchFileList(xh, "")
+	rawNodes, err := d.fetchFileList(xh, password)
 	if err == errPasswordRequired {
 		if d.silent {
 			return fmt.Errorf("transfer requires password")
 		}
-		password = d.showPasswordInput()
-		if password == "" {
-			return errAborted
-		}
-		d.renderStep(2, "Verifying password...", info, title, nil)
-		rawNodes, err = d.fetchFileList(xh, password)
-		if err == errPasswordRequired {
-			return fmt.Errorf("incorrect password")
+		for {
+			password = d.showPasswordInput()
+			if password == "" {
+				return errAborted
+			}
+			d.renderStep(2, "Verifying password...", info, title, nil)
+			rawNodes, err = d.fetchFileList(xh, password)
+			if err == errPasswordRequired {
+				continue
+			}
+			break
 		}
 	}
 	if err != nil {
