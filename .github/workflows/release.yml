@@ -43,8 +43,9 @@ jobs:
             echo "building ${os}/${arch}"
             CGO_ENABLED=0 GOOS="$os" GOARCH="$arch" go build \
               -trimpath \
-              -ldflags "-s -w -X main.version=${version}" \
-              -o "$bin"
+              -ldflags "-s -w -X transferit/internal/version.Label=${version}" \
+              -o "$bin" \
+              ./cmd/transferit
             if [ "$os" = "windows" ]; then
               zip -q "dist/${archive}" "$bin"
             else
