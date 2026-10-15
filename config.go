@@ -70,7 +70,10 @@ func saveConfig(cfg savedConfig) error {
 		return err
 	}
 	data = append(data, '\n')
-	return os.WriteFile(path, data, 0600)
+	if err := os.WriteFile(path, data, 0600); err != nil {
+		return err
+	}
+	return restrictConfigPath(path)
 }
 
 func parsePasswordChoice(v string) (mode, password string) {

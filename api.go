@@ -16,6 +16,7 @@ type Downloader struct {
 	seqID   int
 	verbose bool
 	silent  bool
+	pretty  bool
 	pw      string // derived password for protected transfers
 }
 

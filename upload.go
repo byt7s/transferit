@@ -833,29 +833,7 @@ func (u *Uploader) Run(ctx context.Context, items []uploadItem, opt uploadOption
 }
 
 func (u *Uploader) showProgress(name string, done, total int64, start time.Time) {
-	if total <= 0 {
-		total = 1
-	}
-	if done > total {
-		done = total
-	}
-	elapsed := time.Since(start).Seconds()
-	speed := 0.0
-	if elapsed > 0.05 {
-		speed = float64(done) / elapsed
-	}
-	pct := float64(done) / float64(total) * 100
-	fmt.Fprintf(os.Stderr, "\r  %-36s %6.1f%%  %10s  %-14s", trimMiddle(name, 36), pct, formatSize(done), formatSpeed(speed))
-}
-
-func trimMiddle(name string, n int) string {
-	if len(name) <= n {
-		return name
-	}
-	if n <= 3 {
-		return name[:n]
-	}
-	return name[:n-3] + "..."
+	printTransferProgress(name, done, total, start)
 }
 
 func prepareItems(paths []string) ([]uploadItem, error) {
@@ -1090,15 +1068,15 @@ func runUpload(args []string) {
 		}
 		return
 	}
-	fmt.Printf("Uploaded %d %s (%s)\n\n", result.files, fileWord(result.files), formatSize(result.bytes))
-	fmt.Println(result.link)
-	fmt.Printf("Title:    %s\n", result.title)
+	fmt.Printf("\n  uploaded  %d %s (%s)\n\n", result.files, fileWord(result.files), formatSize(result.bytes))
+	fmt.Printf("  link      %s\n", result.link)
+	fmt.Printf("  title     %s\n", result.title)
 	if result.password != "" {
-		fmt.Printf("Password: %s\n", result.password)
+		fmt.Printf("  password  %s\n", result.password)
 	} else {
-		fmt.Printf("Password: none\n")
+		fmt.Printf("  password  none\n")
 	}
-	fmt.Printf("Expires:  %s\n", expiryPhrase(result.expiry))
+	fmt.Printf("  expires   %s\n", expiryPhrase(result.expiry))
 }
 
 func fileWord(n int) string {

@@ -7,6 +7,7 @@ import (
 )
 
 func main() {
+	enableConsole()
 	if len(os.Args) < 2 {
 		printUsage()
 		os.Exit(1)
