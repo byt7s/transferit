@@ -13,7 +13,6 @@ func runDownload(args []string) {
 	fs := flag.NewFlagSet("download", flag.ExitOnError)
 	output := fs.String("o", ".", "output directory")
 	password := fs.String("p", "", "password for protected transfers")
-	listOnly := fs.Bool("l", false, "list files without downloading")
 	verbose := fs.Bool("v", false, "show detailed API info")
 	silent := fs.Bool("s", false, "suppress all output")
 
@@ -23,7 +22,7 @@ func runDownload(args []string) {
 		fmt.Fprintf(os.Stderr, "\nExamples:\n")
 		fmt.Fprintf(os.Stderr, "  transferit dl https://transfer.it/t/123123123\n")
 		fmt.Fprintf(os.Stderr, "  transferit d 123123123 -o ~/Downloads\n")
-		fmt.Fprintf(os.Stderr, "  transferit download 123123123 -l\n")
+		fmt.Fprintf(os.Stderr, "  transferit info 123123123\n")
 	}
 
 	fs.Parse(args)
@@ -34,7 +33,7 @@ func runDownload(args []string) {
 	}
 
 	dl := download.New(*verbose, *silent)
-	if err := dl.Run(fs.Arg(0), *output, *password, *listOnly); err != nil {
+	if err := dl.Run(fs.Arg(0), *output, *password); err != nil {
 		if errors.Is(err, download.ErrAborted) {
 			fmt.Println("Download aborted.")
 			os.Exit(0)

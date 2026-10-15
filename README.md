@@ -20,6 +20,7 @@ transferit up ./photos -p random -e 7d
 - **Eight connections on the way up.** Large files keep chunks in flight instead of waiting for each acknowledgement.
 - **The network can drop.** Upload and download wait up to 12 minutes and continue. A download keeps what it already wrote in a `.part` file.
 - **Password and expiry stick.** `none`, `random`, or a fixed password, and any duration up to 90 days. Saved for the next upload.
+- **Look before you save.** `transferit info` prints the title, size, and file list. Download is a separate command.
 - **A real screen when you are at the terminal.** Progress, a password prompt, and a choice when the file is already there.
 
 ## Install
@@ -60,6 +61,7 @@ A local build prints `devel` and the commit. A release build prints the tag.
 |---------|----------------|
 | `transferit upload PATH…` | Send files or folders and print the link |
 | `transferit download LINK` | Save a transfer. `LINK` is a URL or the handle |
+| `transferit info LINK` | Show the title, size, and file list |
 | `transferit config` | Show or save the default password and expiry |
 | `transferit version` | Print the build |
 
@@ -92,16 +94,17 @@ transferit dl https://transfer.it/t/AbCdEfGhIjKl
 
 transferit d AbCdEfGhIjKl -p secret -o ~/Downloads
 
-transferit download AbCdEfGhIjKl -l
+transferit info AbCdEfGhIjKl
 ```
 
 | Flag | |
 |------|--|
 | `-o` | Output directory. Default is the current directory |
 | `-p` | Password, if the transfer has one |
-| `-l` | List the files and stop |
 | `-v` | Show API requests |
 | `-s` | No progress |
+
+`info` prints the link, title, password flag, size, and the files. It does not download anything. A protected transfer still shows the summary; pass `-p` to see the list.
 
 At a terminal, a missing password is asked for, and an existing file offers overwrite, keep both, rename, or cancel. Bytes already saved live in `name.part` until the download finishes. Ctrl+C deletes that partial file. If the wait runs out, the `.part` stays, and the next download of the same name continues from it.
 

@@ -13,7 +13,7 @@ import (
 	"transferit/internal/ui"
 )
 
-func (d *Downloader) Run(input, outputDir, password string, listOnly bool) error {
+func (d *Downloader) Run(input, outputDir, password string) error {
 	xh, err := d.extractHandle(input)
 	if err != nil {
 		return err
@@ -21,12 +21,12 @@ func (d *Downloader) Run(input, outputDir, password string, listOnly bool) error
 
 	var results []*downloadResult
 	defer func() {
-		if !d.silent && !listOnly {
+		if !d.silent {
 			printSaved(results)
 		}
 	}()
 
-	if !d.silent && !listOnly && ui.StdinIsTerminal() {
+	if !d.silent && ui.StdinIsTerminal() {
 		if err := ui.Enter(); err == nil {
 			d.Pretty = true
 			defer ui.Exit()
@@ -107,13 +107,6 @@ func (d *Downloader) Run(input, outputDir, password string, listOnly bool) error
 		} else {
 			folders = append(folders, n)
 		}
-	}
-
-	if listOnly {
-		if !d.silent {
-			ui.PrintList(title, transferBytes(info), fileViews(files), fileViews(folders))
-		}
-		return nil
 	}
 
 	if d.Pretty {

@@ -19,6 +19,8 @@ func main() {
 	switch cmd {
 	case "d", "dl", "download":
 		runDownload(os.Args[2:])
+	case "info":
+		runInfo(os.Args[2:])
 	case "u", "up", "upload":
 		runUpload(os.Args[2:])
 	case "config", "defaults":
@@ -36,6 +38,7 @@ func printUsage() {
 	fmt.Fprintf(os.Stderr, "Commands:\n")
 	fmt.Fprintf(os.Stderr, "  u, up, upload      Upload files or folders to transfer.it\n")
 	fmt.Fprintf(os.Stderr, "  d, dl, download    Download files from transfer.it\n")
+	fmt.Fprintf(os.Stderr, "  info               Show a transfer without downloading\n")
 	fmt.Fprintf(os.Stderr, "  config, defaults   Show or save default password and expiry\n")
 	fmt.Fprintf(os.Stderr, "  version            Show the build version\n")
 	fmt.Fprintf(os.Stderr, "\nRun 'transferit <command> -h' for more information on a command.\n")

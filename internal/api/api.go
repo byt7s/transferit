@@ -16,10 +16,12 @@ const (
 )
 
 type TransferInfo struct {
-	Size []int64 `json:"size"`
-	T    string  `json:"t"`
-	M    string  `json:"m"`
-	Z    string  `json:"z"`
+	Size []int64         `json:"size"`
+	T    string          `json:"t"`
+	M    string          `json:"m"`
+	Z    string          `json:"z"`
+	SE   string          `json:"se"`
+	PW   json.RawMessage `json:"pw"`
 }
 
 type FileNode struct {
