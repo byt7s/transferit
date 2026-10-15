@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"strings"
 	"testing"
 	"time"
@@ -93,7 +94,8 @@ func TestScreenFitsTheTerminal(t *testing.T) {
 			layoutRename(width, []rune("report.pdf"), 3),
 			layoutMenu(width, "Already saved", "report.pdf", []string{"18.20 MB  ·  15 Oct 2026 · 09:19", "/tmp/downloads"}, []string{"Overwrite", "Keep both", "Rename", "Cancel"}, 1),
 			layoutSteps(width, 2, "Loading file list", "Notes", 128<<20, 4, 1, []FileNode{{Name: "photo.jpg", S: 2200000}, {Name: "notes.pdf", S: 80000}}),
-			layoutProgress(width, "report.pdf", 18<<20, 64<<20, start),
+			layoutProgress(width, "Download", "report.pdf", 18<<20, 64<<20, start),
+			layoutStatus(width, "Upload", "Preparing files"),
 			inputBox(width, []rune("secret"), 6),
 		}
 		for _, lines := range screens {
@@ -120,6 +122,20 @@ func TestPasswordScreenShowsWhatWasTyped(t *testing.T) {
 		if !strings.Contains(visible, want) {
 			t.Fatalf("missing %q in\n%s", want, visible)
 		}
+	}
+}
+
+func TestDrawStartsEachLineAtColumnZero(t *testing.T) {
+	var buf bytes.Buffer
+	prev := screenOut
+	screenOut = &buf
+	t.Cleanup(func() { screenOut = prev })
+
+	draw([]string{"one", "two"})
+	got := buf.String()
+	want := "\033[H\rone\033[K\r\n\rtwo\033[K\r\n\033[J"
+	if got != want {
+		t.Fatalf("got %q", got)
 	}
 }
 

@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"os"
 	"runtime"
 	"strconv"
@@ -69,7 +70,9 @@ type termSession struct {
 var (
 	termMu      sync.Mutex
 	activeTerm  *termSession
-	exitProcess = os.Exit
+	screenOut   io.Writer = os.Stdout
+	onCtrlC               = abortDownload
+	exitProcess           = os.Exit
 )
 
 func tone(code, text string) string {
@@ -144,7 +147,14 @@ func (s *termSession) readLoop() {
 			chunk := append([]byte(nil), buf[:n]...)
 			for _, b := range chunk {
 				if b == 3 {
-					abortDownload()
+					termMu.Lock()
+					fn := onCtrlC
+					termMu.Unlock()
+					if fn == nil {
+						fn = abortDownload
+					}
+					fn()
+					return
 				}
 			}
 			s.mu.Lock()
@@ -385,17 +395,23 @@ func decodeRune(first byte) (rune, error) {
 
 func contentWidth() int {
 	width, _, err := term.GetSize(int(os.Stdout.Fd()))
-	if err != nil || width <= 0 {
+	if err != nil || width < 20 {
 		width = 80
 	}
 	width -= 4
 	if width > 68 {
 		width = 68
 	}
-	if width < 40 {
-		width = 40
+	if width < 20 {
+		width = 20
 	}
 	return width
+}
+
+func setCtrlC(fn func()) {
+	termMu.Lock()
+	onCtrlC = fn
+	termMu.Unlock()
 }
 
 func clipRunes(s string, n int) string {
@@ -436,11 +452,15 @@ func stripANSI(s string) string {
 }
 
 func draw(lines []string) {
-	fmt.Print("\033[H")
+	var frame strings.Builder
+	frame.WriteString("\033[H")
 	for _, line := range lines {
-		fmt.Printf("%s\033[K\n", line)
+		frame.WriteString("\r")
+		frame.WriteString(line)
+		frame.WriteString("\033[K\r\n")
 	}
-	fmt.Print("\033[J")
+	frame.WriteString("\033[J")
+	fmt.Fprint(screenOut, frame.String())
 }
 
 func appendBrand(lines []string, width int) []string {
@@ -669,14 +689,29 @@ func fileRow(width int, name string, size int64) string {
 	return "  " + label + strings.Repeat(" ", gap) + tone(ansiDim, sizeText)
 }
 
-func layoutProgress(width int, filename string, downloaded, total int64, start time.Time) []string {
+func layoutStatus(width int, title, detail string) []string {
+	lines := appendBrand(nil, width)
+	lines = append(lines,
+		"  "+tone(ansiBold, clipRunes(title, width)),
+		"  "+tone(ansiDim, clipRunes(detail, width)),
+		"",
+		hintLine(width, "ctrl+c", "cancel"),
+	)
+	return lines
+}
+
+func layoutProgress(width int, action, filename string, downloaded, total int64, start time.Time) []string {
 	elapsed := time.Since(start).Seconds()
 	speed := 0.0
 	if elapsed > 0.05 {
 		speed = float64(downloaded) / elapsed
 	}
 	lines := appendBrand(nil, width)
-	lines = append(lines, "  "+tone(ansiBold, clipRunes(filename, width)), "")
+	lines = append(lines,
+		"  "+tone(ansiBold, clipRunes(action, width)),
+		"  "+tone(ansiDim, clipRunes(filename, width)),
+		"",
+	)
 	if total > 0 {
 		pct := float64(downloaded) / float64(total) * 100
 		if pct > 100 {
@@ -687,7 +722,7 @@ func layoutProgress(width int, filename string, downloaded, total int64, start t
 		lines = append(lines, "")
 		lines = append(lines, "  "+tone(ansiBold, fmt.Sprintf("%.0f%%", pct))+"   "+formatSize(downloaded)+" of "+formatSize(total))
 	} else {
-		lines = append(lines, "  "+tone(ansiCyan, "receiving"))
+		lines = append(lines, "  "+tone(ansiCyan, strings.ToLower(action)))
 		lines = append(lines, "")
 		lines = append(lines, "  "+tone(ansiBold, formatSize(downloaded)))
 	}
@@ -933,7 +968,7 @@ func filepathDir(path string) string {
 }
 
 func (d *Downloader) renderTUI(filename string, downloaded, total int64, startTime time.Time) {
-	draw(layoutProgress(contentWidth(), filename, downloaded, total, startTime))
+	draw(layoutProgress(contentWidth(), "Download", filename, downloaded, total, startTime))
 }
 
 func (d *Downloader) renderStep(step int, msg string, info *TransferInfo, title string, files, folders []FileNode) {

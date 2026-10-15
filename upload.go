@@ -50,6 +50,7 @@ type Uploader struct {
 	seqID   int
 	verbose bool
 	silent  bool
+	pretty  bool
 	sid     string
 }
 
@@ -778,6 +779,10 @@ func (u *Uploader) Run(ctx context.Context, items []uploadItem, opt uploadOption
 		}
 	}()
 
+	if u.pretty {
+		draw(layoutStatus(contentWidth(), "Upload", "Opening transfer"))
+	}
+
 	var total int64
 	for _, item := range items {
 		info, err := os.Stat(item.path)
@@ -804,7 +809,7 @@ func (u *Uploader) Run(ctx context.Context, items []uploadItem, opt uploadOption
 			}
 		})
 		if err != nil {
-			if !u.silent {
+			if !u.silent && !u.pretty {
 				fmt.Fprintln(os.Stderr)
 			}
 			return nil, err
@@ -814,7 +819,9 @@ func (u *Uploader) Run(ctx context.Context, items []uploadItem, opt uploadOption
 		}
 		if !u.silent {
 			u.showProgress(item.name, sent, total, start)
-			fmt.Fprintln(os.Stderr)
+			if !u.pretty {
+				fmt.Fprintln(os.Stderr)
+			}
 		}
 	}
 
@@ -833,6 +840,10 @@ func (u *Uploader) Run(ctx context.Context, items []uploadItem, opt uploadOption
 }
 
 func (u *Uploader) showProgress(name string, done, total int64, start time.Time) {
+	if u.pretty {
+		draw(layoutProgress(contentWidth(), "Upload", name, done, total, start))
+		return
+	}
 	printTransferProgress(name, done, total, start)
 }
 
@@ -1020,11 +1031,26 @@ func runUpload(args []string) {
 		pw = ""
 	}
 
-	if !*silent {
+	pretty := false
+	if !*silent && stdinIsTerminal() {
+		if err := enterUI(); err == nil {
+			pretty = true
+		}
+	}
+	defer exitUI()
+
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+	defer stop()
+	setCtrlC(func() { stop() })
+
+	if pretty {
+		draw(layoutStatus(contentWidth(), "Upload", "Preparing files"))
+	} else if !*silent {
 		fmt.Fprintf(os.Stderr, "Preparing files...\n")
 	}
 	items, err := prepareItems(fs.Args())
 	if err != nil {
+		exitUI()
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}
@@ -1045,14 +1071,14 @@ func runUpload(args []string) {
 		}
 	}
 
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
-	defer stop()
 	up := NewUploader(*verbose, *silent)
+	up.pretty = pretty
 	result, err := up.Run(ctx, items, uploadOptions{
 		title:    transferTitle,
 		password: pw,
 		expiry:   seconds,
 	})
+	exitUI()
 	if err != nil {
 		if ctx.Err() != nil {
 			fmt.Fprintln(os.Stderr, "Upload aborted.")
