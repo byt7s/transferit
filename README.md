@@ -2,6 +2,27 @@
 
 CLI to upload and download files on [transfer.it](https://transfer.it).
 
+## Install
+
+Download a build from [Releases](https://github.com/byt7s/transferit/releases), unpack it, and put `transferit` on your `PATH`.
+
+| System | File |
+|--------|------|
+| macOS Apple Silicon | `transferit_darwin_arm64.tar.gz` |
+| macOS Intel | `transferit_darwin_amd64.tar.gz` |
+| Linux x86_64 | `transferit_linux_amd64.tar.gz` |
+| Linux arm64 | `transferit_linux_arm64.tar.gz` |
+| Windows x86_64 | `transferit_windows_amd64.zip` |
+| Windows arm64 | `transferit_windows_arm64.zip` |
+
+```bash
+curl -fsSL -o transferit.tar.gz https://github.com/byt7s/transferit/releases/latest/download/transferit_darwin_arm64.tar.gz
+tar -xzf transferit.tar.gz
+install transferit /usr/local/bin/transferit
+```
+
+The file name stays the same on every release, so that URL always points at the latest build.
+
 ## Build
 
 ```
