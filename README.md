@@ -1,14 +1,30 @@
-# transferit
+<h1 align="center">transferit</h1>
 
-Command-line tool for sending and receiving files on [transfer.it](https://transfer.it).
+<p align="center">
+  <em>Send and receive files on <a href="https://transfer.it">transfer.it</a> from the terminal. No browser, no account.</em>
+</p>
 
-A folder is packed into one `.zip`. Several paths go into the same transfer. Downloads land in the current directory unless you choose another one.
+<p align="center">
+  <a href="https://github.com/byt7s/transferit/releases"><img src="https://img.shields.io/github/v/release/byt7s/transferit?color=007aff&label=release" alt="Release" /></a>
+  <a href="https://github.com/byt7s/transferit/releases"><img src="https://img.shields.io/badge/macOS%20%C2%B7%20Linux%20%C2%B7%20Windows-007aff" alt="macOS, Linux, and Windows" /></a>
+  <a href="go.mod"><img src="https://img.shields.io/github/go-mod/go-version/byt7s/transferit?color=007aff" alt="Go version" /></a>
+</p>
+
+```bash
+transferit up ./photos -p random -e 7d
+# https://transfer.it/t/…
+# and the password, printed once
+```
+
+- **A folder is one transfer.** It is packed into a single `.zip`. Several paths go in the same link.
+- **Eight connections on the way up.** Large files keep chunks in flight instead of waiting for each acknowledgement.
+- **The network can drop.** Upload and download wait up to 12 minutes and continue. A download keeps what it already wrote in a `.part` file.
+- **Password and expiry stick.** `none`, `random`, or a fixed password, and any duration up to 90 days. Saved for the next upload.
+- **A real screen when you are at the terminal.** Progress, a password prompt, and a choice when the file is already there.
 
 ## Install
 
-Prebuilt binaries are published on [GitHub Releases](https://github.com/byt7s/transferit/releases). Download the archive for your system, unpack it, and put `transferit` on your `PATH`.
-
-The file names stay the same on every release, so these links always fetch the latest build. Each release also includes `SHA256SUMS`.
+Grab a build from [Releases](https://github.com/byt7s/transferit/releases). The file names never change, so these links always point at the latest build. Every release includes `SHA256SUMS`.
 
 | System | Archive |
 |--------|---------|
@@ -28,71 +44,76 @@ install transferit /usr/local/bin/transferit
 transferit version
 ```
 
-Swap the archive name for Linux or Intel Macs. On Windows, unzip the archive and run `transferit.exe`.
+Swap the archive name for Linux or an Intel Mac. On Windows, unzip and run `transferit.exe`.
 
-## Build
+From source:
 
 ```bash
 go build -o transferit ./cmd/transferit
 ```
 
-A local build reports `devel` plus the commit. Release builds report the version tag.
+A local build prints `devel` and the commit. A release build prints the tag.
+
+## Commands
+
+| Command | What it does |
+|---------|----------------|
+| `transferit upload PATH…` | Send files or folders and print the link |
+| `transferit download LINK` | Save a transfer. `LINK` is a URL or the handle |
+| `transferit config` | Show or save the default password and expiry |
+| `transferit version` | Print the build |
+
+`upload` is also `u` and `up`. `download` is also `d` and `dl`. Run `transferit <command> -h` for the flags.
 
 ## Upload
 
 ```bash
-transferit upload [options] <file or folder>...
-```
-
-| Flag | Description |
-|------|-------------|
-| `-p` | Password override: `none`, `random`, or a password. The default comes from `config` |
-| `-e` | Expiry override, for example `1d`, `7d`, `30d`, `90d`, or `12h`. Maximum is 90 days |
-| `-t` | Transfer title |
-| `-v` | Show API requests |
-| `-s` | Print only the link, and the password when there is one |
-
-```bash
 transferit up report.pdf
+
 transferit up -p random -e 7d ./photos
+
 transferit upload -p none -e 1d -t Notes a.txt b.txt
 ```
 
-A large file is sent over several connections, so the upload is not limited to one chunk at a time. If the network drops, transferit waits up to 12 minutes and continues from the last confirmed chunk. Ctrl+C still cancels.
+| Flag | |
+|------|--|
+| `-p` | `none`, `random`, or a password. Default comes from `config` |
+| `-e` | Expiry, such as `12h`, `1d`, `7d`, `30d`, `90d`. Maximum is 90 days |
+| `-t` | Title |
+| `-v` | Show API requests |
+| `-s` | Print only the link, and the password when there is one |
+
+Ctrl+C cancels. If the connection drops and you leave the command running, it resumes from the last chunk the server confirmed.
 
 ## Download
 
 ```bash
-transferit download [options] <transfer.it URL or handle>
+transferit dl https://transfer.it/t/AbCdEfGhIjKl
+
+transferit d AbCdEfGhIjKl -p secret -o ~/Downloads
+
+transferit download AbCdEfGhIjKl -l
 ```
 
-| Flag | Description |
-|------|-------------|
+| Flag | |
+|------|--|
 | `-o` | Output directory. Default is the current directory |
-| `-p` | Password for a protected transfer |
-| `-l` | List files without downloading |
+| `-p` | Password, if the transfer has one |
+| `-l` | List the files and stop |
 | `-v` | Show API requests |
-| `-s` | Suppress progress output |
+| `-s` | No progress |
 
-```bash
-transferit dl https://transfer.it/t/123123123
-transferit d 123123123 -p secret -o ~/Downloads
-transferit download 123123123 -l
-```
-
-If the terminal can take input, download asks for a missing password and what to do when a file is already there.
-
-If the connection drops, the download waits up to 12 minutes and continues from the bytes already written. Those bytes stay in a `.part` file next to the destination until the download finishes. Ctrl+C deletes that partial file.
+At a terminal, a missing password is asked for, and an existing file offers overwrite, keep both, rename, or cancel. Bytes already saved live in `name.part` until the download finishes. Ctrl+C deletes that partial file. If the wait runs out, the `.part` stays, and the next download of the same name continues from it.
 
 ## Defaults
 
-`config` stores the password mode and the expiry used when an upload does not override them. Expiry can be any duration up to 90 days.
+`config` is what an upload uses when you do not pass `-p` or `-e`.
 
-| Password | Meaning |
-|----------|---------|
+| Password | |
+|----------|--|
 | `none` | No password |
-| `random` | Generate a new password on every upload and print it |
-| any other value | Always use that password |
+| `random` | A new password on every upload, printed with the link |
+| anything else | That password, every time |
 
 ```bash
 transferit config
@@ -101,15 +122,19 @@ transferit config -password random -expiry 7d
 transferit config -password 's3cret' -expiry 1d
 ```
 
-The file is `config.json` inside the user config directory, under `transferit/`. Only your account can read it.
+The file is `config.json` under `transferit/` in your user config directory. Only your account can read it.
 
 ## Releases
 
-Pushing a tag that starts with `v` builds the six archives and publishes them. The workflow lives in `.github/workflows/release.yml`.
+A tag that starts with `v` builds the six archives and publishes them.
 
 ```bash
 git tag v0.1.1
 git push origin v0.1.1
 ```
 
-`transferit version` on those binaries prints the tag.
+## Disclaimer
+
+transferit is an independent project. It is not affiliated with, endorsed by, or connected to MEGA or transfer.it. Product names belong to their owners.
+
+It talks to transfer.it the same way the website does. You are responsible for what you send and for following [transfer.it's terms](https://transfer.it/terms). The software is provided as is, without warranty.
