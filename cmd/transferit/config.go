@@ -11,7 +11,7 @@ import (
 func runConfig(args []string) {
 	fs := flag.NewFlagSet("config", flag.ExitOnError)
 	password := fs.String("password", "", "none, random, or a fixed password")
-	expiry := fs.String("expiry", "", "expiry: 1d, 7d, 30d, 90d, or 12h (maximum 90 days)")
+	expiry := fs.String("expiry", "", "expiry: 12h, 1d, 3d, 7d, 30d, or 90d (maximum 90 days)")
 	fs.Usage = func() {
 		fmt.Fprintf(os.Stderr, "Usage: transferit config [-password VALUE] [-expiry VALUE]\n\n")
 		fmt.Fprintf(os.Stderr, "With no flags, prints the saved defaults. Password VALUE is:\n")
@@ -23,6 +23,7 @@ func runConfig(args []string) {
 		fmt.Fprintf(os.Stderr, "  transferit config\n")
 		fmt.Fprintf(os.Stderr, "  transferit config -password none -expiry 90d\n")
 		fmt.Fprintf(os.Stderr, "  transferit config -password random -expiry 7d\n")
+		fmt.Fprintf(os.Stderr, "  transferit config -password random -expiry 3d\n")
 		fmt.Fprintf(os.Stderr, "  transferit config -password 's3cret' -expiry 1d\n")
 	}
 	fs.Parse(args)

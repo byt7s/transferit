@@ -17,7 +17,7 @@ import (
 func runUpload(args []string) {
 	fs := flag.NewFlagSet("upload", flag.ExitOnError)
 	password := fs.String("p", "", "password override: none, random, or a password (default: saved setting)")
-	expiry := fs.String("e", "", "expiry override, for example 1d, 7d, 30d, 90d, or 12h (maximum 90 days)")
+	expiry := fs.String("e", "", "expiry override, for example 12h, 1d, 3d, 7d, 30d, or 90d (maximum 90 days)")
 	title := fs.String("t", "", "transfer title")
 	verbose := fs.Bool("v", false, "show API requests")
 	silent := fs.Bool("s", false, "print only the link and password")
@@ -30,6 +30,7 @@ func runUpload(args []string) {
 		fmt.Fprintf(os.Stderr, "\nExamples:\n")
 		fmt.Fprintf(os.Stderr, "  transferit up report.pdf\n")
 		fmt.Fprintf(os.Stderr, "  transferit up -p random -e 7d ./photos\n")
+		fmt.Fprintf(os.Stderr, "  transferit up -p random -e 3d ./photos\n")
 		fmt.Fprintf(os.Stderr, "  transferit upload -p none -e 1d -t Notes a.txt b.txt\n")
 	}
 	fs.Parse(args)

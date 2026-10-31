@@ -73,6 +73,7 @@ A local build prints `devel` and the commit. A release build prints the tag.
 transferit up report.pdf
 
 transferit up -p random -e 7d ./photos
+transferit up -p random -e 3d ./photos
 
 transferit upload -p none -e 1d -t Notes a.txt b.txt
 ```
@@ -80,7 +81,7 @@ transferit upload -p none -e 1d -t Notes a.txt b.txt
 | Flag | |
 |------|--|
 | `-p` | `none`, `random`, or a password. Default comes from `config` |
-| `-e` | Expiry, such as `12h`, `1d`, `7d`, `30d`, `90d`. Maximum is 90 days |
+| `-e` | Expiry, such as `12h`, `1d`, `3d`, `7d`, `30d`, `90d`. Maximum is 90 days |
 | `-t` | Title |
 | `-v` | Show API requests |
 | `-s` | Print only the link, and the password when there is one |
@@ -122,6 +123,7 @@ At a terminal, a missing password is asked for, and an existing file offers over
 transferit config
 transferit config -password none -expiry 90d
 transferit config -password random -expiry 7d
+transferit config -password random -expiry 3d
 transferit config -password 's3cret' -expiry 1d
 ```
 

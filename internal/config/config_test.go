@@ -15,6 +15,10 @@ func TestParseExpiry(t *testing.T) {
 	if err != nil || sec != 12*3600 {
 		t.Fatalf("12h = %d %v", sec, err)
 	}
+	sec, err = ParseExpiry("3d")
+	if err != nil || sec != 3*86400 {
+		t.Fatalf("3d = %d %v", sec, err)
+	}
 	sec, err = ParseExpiry("never")
 	if err != nil || sec != 0 {
 		t.Fatalf("never = %d %v", sec, err)
@@ -34,6 +38,10 @@ func TestParseExpiry(t *testing.T) {
 	canon, err := CanonicalExpiry("48h")
 	if err != nil || canon != "2d" {
 		t.Fatalf("canonical = %s %v", canon, err)
+	}
+	canon, err = CanonicalExpiry("72h")
+	if err != nil || canon != "3d" {
+		t.Fatalf("canonical 3d = %s %v", canon, err)
 	}
 }
 

@@ -29,7 +29,7 @@ func ParseExpiry(s string) (int, error) {
 	}
 	n, err := strconv.Atoi(num)
 	if err != nil || n < 0 {
-		return 0, fmt.Errorf("invalid expiry %q (examples: 1d, 7d, 30d, 90d, 12h, 0)", s)
+		return 0, fmt.Errorf("invalid expiry %q (examples: 12h, 1d, 3d, 7d, 30d, 90d, 0)", s)
 	}
 	seconds := n * mult
 	if n > 0 && seconds/n != mult {
