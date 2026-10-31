@@ -276,3 +276,13 @@ func readPromptLine(prompt string) (string, error) {
 	}
 	return strings.TrimSpace(line), nil
 }
+
+// Confirm asks a yes/no question. The default answer is no.
+func Confirm(question string) bool {
+	line, err := readPromptLine(question + " [y/N] ")
+	if err != nil {
+		return false
+	}
+	line = strings.ToLower(strings.TrimSpace(line))
+	return line == "y" || line == "yes" || line == "s" || line == "sim"
+}

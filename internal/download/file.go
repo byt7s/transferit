@@ -32,6 +32,12 @@ func setCurrentDownload(path string) {
 	downloadMu.Unlock()
 }
 
+func hasPartial() bool {
+	downloadMu.Lock()
+	defer downloadMu.Unlock()
+	return currentDownloadPath != ""
+}
+
 func discardPartial() {
 	downloadMu.Lock()
 	path := currentDownloadPath

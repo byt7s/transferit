@@ -188,7 +188,13 @@ func printSaved(results []*downloadResult) {
 
 func abort() {
 	ui.Exit()
-	discardPartial()
+	if hasPartial() {
+		if ui.StdinIsTerminal() && ui.Confirm("Delete partial file?") {
+			discardPartial()
+		} else {
+			fmt.Fprint(os.Stdout, "Partial file kept. Run the same command to resume.\r\n")
+		}
+	}
 	fmt.Fprint(os.Stdout, "Download aborted.\r\n")
 	os.Exit(0)
 }
