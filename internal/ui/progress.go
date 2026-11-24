@@ -93,6 +93,40 @@ func printTransferProgress(name string, done, total int64, start time.Time) {
 	fmt.Fprintf(os.Stderr, "\r%s", line)
 }
 
+func layoutPrepare(width int, name string, done, total int64) []string {
+	lines := appendBrand(nil, width)
+	lines = append(lines,
+		"  "+tone(ansiBold, "Upload"),
+		"  "+tone(ansiDim, "Preparing files"),
+	)
+	if name != "" {
+		lines = append(lines, "  "+tone(ansiDim, clipRunes(name, width)))
+	}
+	lines = append(lines, "")
+	if total > 0 {
+		pct := float64(done) / float64(total) * 100
+		if pct > 100 {
+			pct = 100
+		}
+		filled, empty := barCells(pct, width)
+		lines = append(lines, "  "+tone(ansiCyan, strings.Repeat("█", filled))+tone(ansiDim, strings.Repeat("░", empty)))
+		lines = append(lines, "")
+		lines = append(lines, "  "+tone(ansiBold, fmt.Sprintf("%.0f%%", pct))+"   "+format.Size(done)+" of "+format.Size(total))
+	} else {
+		lines = append(lines, "  "+tone(ansiDim, "Reading folder contents"))
+	}
+	lines = append(lines, "", hintLine(width, "ctrl+c", "cancel"))
+	return lines
+}
+
+func ShowPrepare(pretty bool, name string, done, total int64, start time.Time) {
+	if pretty {
+		Draw(layoutPrepare(ContentWidth(), name, done, total))
+		return
+	}
+	printTransferProgress(name, done, total, start)
+}
+
 func ShowProgress(pretty bool, action, name string, done, total int64, start time.Time) {
 	if pretty {
 		Draw(layoutProgress(ContentWidth(), action, name, done, total, start))

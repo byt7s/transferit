@@ -93,6 +93,8 @@ func TestScreenFitsTheTerminal(t *testing.T) {
 			layoutSteps(width, 2, "Loading file list", "Notes", 128<<20, 4, 1, []File{{Name: "photo.jpg", Size: 2200000}, {Name: "notes.pdf", Size: 80000}}),
 			layoutProgress(width, "Download", "report.pdf", 18<<20, 64<<20, start),
 			LayoutStatus(width, "Upload", "Preparing files"),
+			layoutPrepare(width, "photos.zip", 18<<20, 64<<20),
+			layoutPrepare(width, "", 0, 0),
 			inputBox(width, []rune("secret"), 6),
 		}
 		for _, lines := range screens {

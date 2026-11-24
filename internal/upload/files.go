@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 type Item struct {
@@ -16,7 +17,10 @@ type Item struct {
 	Cleanup func()
 }
 
-func Prepare(paths []string) ([]Item, error) {
+// Progress reports how much of an archive has been written so far.
+type Progress func(name string, done, total int64)
+
+func Prepare(paths []string, progress Progress) ([]Item, error) {
 	var items []Item
 	seen := map[string]int{}
 	unique := func(name string) string {
@@ -43,7 +47,7 @@ func Prepare(paths []string) ([]Item, error) {
 			return nil, err
 		}
 		if info.IsDir() {
-			zipPath, zipName, err := zipDirectory(path)
+			zipPath, zipName, err := zipDirectory(path, progress)
 			if err != nil {
 				cleanup()
 				return nil, err
@@ -66,11 +70,22 @@ func Prepare(paths []string) ([]Item, error) {
 	return items, nil
 }
 
-func zipDirectory(dir string) (string, string, error) {
+func zipDirectory(dir string, progress Progress) (string, string, error) {
 	base := filepath.Base(dir)
 	if base == "." || base == string(filepath.Separator) || base == "" {
 		base = "folder"
 	}
+	zipName := base + ".zip"
+	total, err := dirSize(dir)
+	if err != nil {
+		return "", "", err
+	}
+	report := func(done int64) {
+		if progress != nil {
+			progress(zipName, done, total)
+		}
+	}
+	report(0)
 	f, err := os.CreateTemp("", "transferit-*.zip")
 	if err != nil {
 		return "", "", err
@@ -83,6 +98,8 @@ func zipDirectory(dir string) (string, string, error) {
 		}
 	}()
 	zw := zip.NewWriter(f)
+	var done int64
+	lastReport := time.Time{}
 	err = filepath.WalkDir(dir, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
 			return err
@@ -110,12 +127,29 @@ func zipDirectory(dir string) (string, string, error) {
 		if err != nil {
 			return err
 		}
-		_, copyErr := io.Copy(w, src)
-		closeErr := src.Close()
-		if copyErr != nil {
-			return copyErr
+		buf := make([]byte, 256*1024)
+		for {
+			n, readErr := src.Read(buf)
+			if n > 0 {
+				if _, err := w.Write(buf[:n]); err != nil {
+					src.Close()
+					return err
+				}
+				done += int64(n)
+				if done >= total || time.Since(lastReport) >= 100*time.Millisecond {
+					lastReport = time.Now()
+					report(done)
+				}
+			}
+			if readErr == io.EOF {
+				break
+			}
+			if readErr != nil {
+				src.Close()
+				return readErr
+			}
 		}
-		return closeErr
+		return src.Close()
 	})
 	closeZip := zw.Close()
 	closeFile := f.Close()
@@ -128,6 +162,26 @@ func zipDirectory(dir string) (string, string, error) {
 	if closeFile != nil {
 		return "", "", closeFile
 	}
+	report(done)
 	ok = true
-	return f.Name(), base + ".zip", nil
+	return f.Name(), zipName, nil
+}
+
+func dirSize(dir string) (int64, error) {
+	var total int64
+	err := filepath.WalkDir(dir, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if !d.Type().IsRegular() {
+			return nil
+		}
+		info, err := d.Info()
+		if err != nil {
+			return err
+		}
+		total += info.Size()
+		return nil
+	})
+	return total, err
 }

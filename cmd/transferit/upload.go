@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/signal"
 	"strings"
+	"time"
 
 	"transferit/internal/config"
 	"transferit/internal/format"
@@ -100,7 +101,23 @@ func runUpload(args []string) {
 	} else if !*silent {
 		fmt.Fprintf(os.Stderr, "Preparing files...\n")
 	}
-	items, err := upload.Prepare(fs.Args())
+	prepared := false
+	var prepName string
+	var prepStart time.Time
+	progress := func(name string, done, total int64) {
+		if *silent {
+			return
+		}
+		if name != prepName {
+			prepName, prepStart = name, time.Now()
+		}
+		prepared = true
+		ui.ShowPrepare(pretty, name, done, total, prepStart)
+	}
+	items, err := upload.Prepare(fs.Args(), progress)
+	if prepared && !pretty {
+		fmt.Fprintln(os.Stderr)
+	}
 	if err != nil {
 		ui.Exit()
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
